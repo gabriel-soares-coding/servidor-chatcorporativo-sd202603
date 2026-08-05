@@ -1,0 +1,29 @@
+﻿ID,Descrição do Requisito,TIPO,Dependências,Observação
+R01,"O documento de arquitetura deve conter a especificação completa da arquitetura de sistema
+distribuído adotada (centralizada, cliente-servidor, peer-to-peer, híbrida
+etc.);",RG 💼,,
+R02,"O documento de arquitetura deve conter o detalhamento dos protocolos de aplicação e de
+transporte",RG 💼,,
+R03,"O documento de arquitetura deve conter o detalhamento do modelo de comunicação (síncrona, assíncrona, orientada a mensagem, RPC, mecanismo publicar/subscrever etc.)",RG 💼,,
+R04,"O documento de arquitetura deve conter o detalhamento das interfaces entre os módulos sistema
+(APIs, endpoints, protocolos internos)",RG 💼,,
+R05,"O documento de arquitetura deverá conter o detalhamento das funções, métodos e serviços expostos para cada componente do sistema",RG 💼,,
+R06,"O documento de arquitetura deve conter a identificação e análise dos tipos de transparência oferecidos pelo sistema (de acesso, localização, replicação, concorrência, falhas, etc.)",RG 💼,,
+R07,"O documento de arquitetura deve conter a análise de escalabilidade horizontal e vertical, justificando a arquitetura frente à expansão geográfica ou de usuários.",RG 💼,,
+R08,"O documento de arquitetura deve conter as estratégias de detecção, prevenção e recuperação de falhas (tolerância a falhas e alta disponibilidade).",RG 💼,,
+R09,O sistema deve identificar de forma única usuários e grupos.,RF 👨‍💻,,
+R10,O sistema deve permitir o envio de mensagens de texto entre os usuários.,RF 👨‍💻,,
+R11,O sistema deve permitir a busca por usuários cadastrados no sistema.,RF 👨‍💻,,
+R12,O sistema deve permitir o envio de arquivos entre os usuários.,RF 👨‍💻,,
+R13,O sistema deve permitir comunicação em grupos privados ou institucionais.,RF 👨‍💻,,
+R14,"O sistema permitir a definição de restrições de comunicação entre
+membros de órgãos e autarquias.",RF 👨‍💻,,
+R15,"O sistema deve permitir a definição de restrições de ingresso de membros nos
+grupos.",RF 👨‍💻,,
+R16,"O sistema deve permitir a definição de restrições de comunicação entre
+membros de grupos.",RF 👨‍💻,,
+R17,"O sistema deve garantir o histórico completo das mensagens com ordem causal, independentemente do dispositivo utilizado.",RF 👨‍💻,,
+R18,O sistema deve garantir a autenticidade das mensagens e arquivos transmitidos.,RNF ⚙️,,
+R19,O sistema deve garantir o não repúdio das ações realizadas pelos usuários.,RNF ⚙️,,
+R20,O sistema deve garantir a confidencialidade das comunicações.,RNF ⚙️,,
+R21,"O sistema deve oferecer tempos de resposta breves e ser escalável, permitindo o seu crescimento orgânico.",RNF ⚙️,,
