@@ -1,0 +1,814 @@
+<h1>Documento de Arquitetura do MVP</h1>
+<p>Projeto: Chat Corporativo Distribuído para Órgãos Públicos<br />
+Disciplina: Sistemas Distribuídos<br />
+Versão: 1.0<br />
+Data: 2026-08-05<br />
+Equipe: preencher os nomes dos integrantes antes da entrega final</p>
+<h2>1. Objetivo do documento</h2>
+<p>Este documento descreve a arquitetura do MVP do projeto de comunicação corporativa nacional proposto para órgãos e autarquias de uma federação fictícia com mais de 30 estados. O objetivo é registrar a solução de maneira suficientemente clara para permitir sua continuidade por uma segunda equipe, sem dependência de conhecimento tácito dos autores originais.</p>
+<p>O repositório atual implementa uma prova de conceito (PoC) em Java baseada em sockets TCP e protocolo de aplicação próprio. Ao longo deste documento, os requisitos são tratados em duas perspectivas:</p>
+<ul>
+<li><code>PoC atual</code>: o que já existe no código-fonte deste repositório.</li>
+<li><code>MVP documentado</code>: a evolução arquitetural recomendada para atender integralmente aos requisitos da avaliação.</li>
+</ul>
+<h2>2. Escopo do sistema</h2>
+<p>O sistema proposto substitui plataformas internacionais de comunicação por uma alternativa nacional com foco em soberania digital, segurança, rastreabilidade e escalabilidade. O escopo funcional inclui:</p>
+<ul>
+<li>identificação única de usuários e grupos;</li>
+<li>troca de mensagens privadas;</li>
+<li>comunicação em grupos;</li>
+<li>envio de arquivos;</li>
+<li>aplicação de restrições de comunicação entre órgãos;</li>
+<li>trilha de auditoria;</li>
+<li>manutenção de histórico de mensagens.</li>
+</ul>
+<h2>3. Arquitetura adotada</h2>
+<h3>3.1 Visão arquitetural do MVP</h3>
+<p>Para o MVP, recomenda-se uma arquitetura <code>cliente-servidor distribuída em camadas</code>, com brokers de comunicação horizontalmente escaláveis, serviços internos especializados e persistência externa. Essa escolha atende melhor aos requisitos de expansão geográfica, alta concorrência e separação entre autenticação, roteamento, auditoria e armazenamento.</p>
+<h3>3.2 Visão arquitetural da PoC atual</h3>
+<p>O repositório implementa uma versão simplificada <code>cliente-servidor centralizada</code>, com um único processo servidor, múltiplas conexões concorrentes e serviços em memória:</p>
+<pre><code class="language-mermaid">flowchart LR
+    C1[Cliente TCP 1]
+    C2[Cliente TCP 2]
+    CN[Cliente TCP N]
+    S[ChatServer]
+
+    subgraph Core[Serviços internos no mesmo processo JVM]
+        H[ClientHandler]
+        U[UserService]
+        M[MessageService]
+        G[GroupService]
+        F[FileTransferService]
+        A[AccessControlService]
+        D[AuditService]
+    end
+
+    LOG[(audit.log)]
+    MEM[(Memória do processo)]
+
+    C1 &lt;-- TCP --&gt; S
+    C2 &lt;-- TCP --&gt; S
+    CN &lt;-- TCP --&gt; S
+    S --&gt; H
+    H --&gt; U
+    H --&gt; M
+    H --&gt; G
+    H --&gt; F
+    H --&gt; A
+    H --&gt; D
+    U --&gt; MEM
+    M --&gt; MEM
+    G --&gt; MEM
+    A --&gt; MEM
+    D --&gt; LOG
+</code></pre>
+<h3>3.3 Visão arquitetural alvo para evolução</h3>
+<pre><code class="language-mermaid">flowchart TB
+    CL[Clientes desktop, web ou CLI]
+    LB[Balanceador / Gateway TCP]
+
+    subgraph REG[Camada de brokers]
+        B1[Broker regional A]
+        B2[Broker regional B]
+        BN[Broker regional N]
+    end
+
+    subgraph SV[Serviços internos]
+        DIR[Diretório de usuários]
+        ACL[Serviço de controle de acesso]
+        MSG[Serviço de mensagens]
+        GRP[Serviço de grupos]
+        FILE[Serviço de arquivos]
+        AUD[Serviço de auditoria]
+    end
+
+    subgraph DATA[Persistência]
+        DB[(Banco transacional)]
+        OBJ[(Armazenamento de objetos)]
+        EVT[(Log/event store)]
+    end
+
+    CL --&gt; LB
+    LB --&gt; B1
+    LB --&gt; B2
+    LB --&gt; BN
+    B1 --&gt; DIR
+    B1 --&gt; ACL
+    B1 --&gt; MSG
+    B1 --&gt; GRP
+    B1 --&gt; FILE
+    B1 --&gt; AUD
+    B2 --&gt; DIR
+    B2 --&gt; ACL
+    B2 --&gt; MSG
+    B2 --&gt; GRP
+    B2 --&gt; FILE
+    B2 --&gt; AUD
+    BN --&gt; DIR
+    BN --&gt; ACL
+    BN --&gt; MSG
+    BN --&gt; GRP
+    BN --&gt; FILE
+    BN --&gt; AUD
+    DIR --&gt; DB
+    ACL --&gt; DB
+    MSG --&gt; DB
+    MSG --&gt; EVT
+    GRP --&gt; DB
+    FILE --&gt; OBJ
+    AUD --&gt; EVT
+</code></pre>
+<h2>4. Componentes e responsabilidades</h2>
+<h3>4.1 Componentes existentes na PoC</h3>
+<table>
+<thead>
+<tr>
+<th>Componente</th>
+<th>Responsabilidade principal</th>
+<th>Interfaces/métodos relevantes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ServerMain</code></td>
+<td>Inicializa o servidor na porta <code>5000</code></td>
+<td><code>main</code></td>
+</tr>
+<tr>
+<td><code>ChatServer</code></td>
+<td>Aceita conexões TCP, cria <code>ClientHandler</code>, registra clientes conectados e compartilha serviços</td>
+<td><code>start</code>, <code>stop</code>, <code>registerClient</code>, <code>unregisterClient</code>, <code>getClient</code>, <code>getConnectedUsers</code>, <code>isOnline</code></td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td>Controla a sessão de um cliente, interpreta comandos e delega ao serviço adequado</td>
+<td><code>run</code>, <code>sendMessage</code>, <code>getRawOutput</code></td>
+</tr>
+<tr>
+<td><code>CommandParser</code></td>
+<td>Converte uma linha textual do protocolo em um objeto estruturado</td>
+<td><code>parse</code></td>
+</tr>
+<tr>
+<td><code>UserService</code></td>
+<td>Autenticação, auto-registro e busca de usuários</td>
+<td><code>authenticate</code>, <code>findUser</code>, <code>listAllUsers</code>, <code>exists</code></td>
+</tr>
+<tr>
+<td><code>MessageService</code></td>
+<td>Criação de mensagens diretas e de grupo, além do histórico em memória</td>
+<td><code>createDirectMessage</code>, <code>createGroupMessage</code>, <code>getDirectHistory</code>, <code>getGroupHistory</code></td>
+</tr>
+<tr>
+<td><code>GroupService</code></td>
+<td>Criação, ingresso, saída e verificação de membros de grupos</td>
+<td><code>createGroup</code>, <code>joinGroup</code>, <code>leaveGroup</code>, <code>getGroup</code>, <code>getMembers</code>, <code>listGroups</code>, <code>isMember</code></td>
+</tr>
+<tr>
+<td><code>FileTransferService</code></td>
+<td>Recebimento e envio de bytes de arquivos pelo socket</td>
+<td><code>receiveFileData</code>, <code>sendFileData</code></td>
+</tr>
+<tr>
+<td><code>AccessControlService</code></td>
+<td>Verificação de autenticação e restrições entre órgãos</td>
+<td><code>blockCommunication</code>, <code>unblockCommunication</code>, <code>checkCommunicationAllowed</code>, <code>requireAuthentication</code>, <code>getBlockedPairs</code></td>
+</tr>
+<tr>
+<td><code>AuditService</code></td>
+<td>Registro de auditoria em arquivo texto append-only no nível do processo</td>
+<td><code>logAction</code>, <code>close</code></td>
+</tr>
+<tr>
+<td><code>User</code>, <code>Group</code>, <code>Message</code></td>
+<td>Modelos de domínio</td>
+<td>getters e regras simples de integridade</td>
+</tr>
+</tbody>
+</table>
+<h3>4.2 Componentes recomendados para o MVP distribuído</h3>
+<table>
+<thead>
+<tr>
+<th>Componente</th>
+<th>Responsabilidade no MVP</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gateway TCP</td>
+<td>Terminação de conexões, rate limiting e encaminhamento para brokers</td>
+<td>Pode ser TCP puro ou TCP + TLS</td>
+</tr>
+<tr>
+<td>Broker de sessão</td>
+<td>Manter sessões ativas, autenticar, rotear mensagens e coordenar respostas</td>
+<td>Evolui o papel atual de <code>ChatServer</code> + <code>ClientHandler</code></td>
+</tr>
+<tr>
+<td>Diretório de usuários</td>
+<td>Cadastro, autenticação, pesquisa e metadados de presença</td>
+<td>Hoje está embutido em <code>UserService</code></td>
+</tr>
+<tr>
+<td>Serviço de grupos</td>
+<td>Regras de ingresso, papéis e mensagens institucionais/privadas</td>
+<td>Evolui <code>GroupService</code></td>
+</tr>
+<tr>
+<td>Serviço de ACL</td>
+<td>Regras entre órgãos, grupos e perfis</td>
+<td>Evolui <code>AccessControlService</code></td>
+</tr>
+<tr>
+<td>Serviço de mensagens</td>
+<td>Persistência, ordenação, entrega, retry e histórico</td>
+<td>Evolui <code>MessageService</code></td>
+</tr>
+<tr>
+<td>Serviço de arquivos</td>
+<td>Upload, download, checksum e antivírus</td>
+<td>Evolui <code>FileTransferService</code></td>
+</tr>
+<tr>
+<td>Serviço de auditoria</td>
+<td>Eventos imutáveis, retenção e consulta</td>
+<td>Evolui <code>AuditService</code></td>
+</tr>
+</tbody>
+</table>
+<h2>5. Protocolos de transporte e de aplicação</h2>
+<h3>5.1 Transporte</h3>
+<ul>
+<li><code>PoC atual</code>: TCP sobre IPv4/IPv6, conexões persistentes ponto a ponto entre cliente e servidor.</li>
+<li><code>MVP documentado</code>: TCP com TLS obrigatório para confidencialidade e autenticação do servidor.</li>
+</ul>
+<h3>5.2 Protocolo de aplicação</h3>
+<p>O protocolo da PoC é textual, orientado a linha, em UTF-8. Cada comando do cliente é enviado em uma linha. Em transferências de arquivo, após a linha de comando são enviados bytes brutos do arquivo.</p>
+<h4>Comandos do cliente para o servidor</h4>
+<table>
+<thead>
+<tr>
+<th>Comando</th>
+<th>Sintaxe</th>
+<th>Finalidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LOGIN</code></td>
+<td><code>LOGIN &lt;usuario&gt; &lt;senha&gt; &lt;orgao&gt;</code></td>
+<td>autenticar ou registrar automaticamente o usuário</td>
+</tr>
+<tr>
+<td><code>MSG</code></td>
+<td><code>MSG &lt;destinatario&gt; &lt;texto...&gt;</code></td>
+<td>enviar mensagem direta</td>
+</tr>
+<tr>
+<td><code>GMSG</code></td>
+<td><code>GMSG &lt;grupo&gt; &lt;texto...&gt;</code></td>
+<td>enviar mensagem ao grupo</td>
+</tr>
+<tr>
+<td><code>LIST</code></td>
+<td><code>LIST</code></td>
+<td>listar usuários conectados</td>
+</tr>
+<tr>
+<td><code>GLIST</code></td>
+<td><code>GLIST</code></td>
+<td>listar grupos cadastrados</td>
+</tr>
+<tr>
+<td><code>GCREATE</code></td>
+<td><code>GCREATE &lt;nomeGrupo&gt;</code></td>
+<td>criar grupo</td>
+</tr>
+<tr>
+<td><code>GJOIN</code></td>
+<td><code>GJOIN &lt;grupo&gt;</code></td>
+<td>entrar em grupo</td>
+</tr>
+<tr>
+<td><code>GLEAVE</code></td>
+<td><code>GLEAVE &lt;grupo&gt;</code></td>
+<td>sair de grupo</td>
+</tr>
+<tr>
+<td><code>FILE</code></td>
+<td><code>FILE &lt;destinatario&gt; &lt;nomeArquivo&gt; &lt;tamanhoBytes&gt;</code></td>
+<td>iniciar envio de arquivo</td>
+</tr>
+<tr>
+<td><code>QUIT</code></td>
+<td><code>QUIT</code></td>
+<td>encerrar a sessão</td>
+</tr>
+</tbody>
+</table>
+<h4>Respostas e eventos do servidor para o cliente</h4>
+<table>
+<thead>
+<tr>
+<th>Resposta</th>
+<th>Sintaxe</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OK</code></td>
+<td><code>OK &lt;mensagem&gt;</code></td>
+<td>operação concluída com sucesso</td>
+</tr>
+<tr>
+<td><code>ERR</code></td>
+<td><code>ERR &lt;codigo&gt; &lt;mensagem&gt;</code></td>
+<td>operação rejeitada</td>
+</tr>
+<tr>
+<td><code>RECV</code></td>
+<td><code>RECV &lt;remetente&gt; &lt;texto&gt;</code></td>
+<td>mensagem direta recebida</td>
+</tr>
+<tr>
+<td><code>GRECV</code></td>
+<td><code>GRECV &lt;grupo&gt; &lt;remetente&gt; &lt;texto&gt;</code></td>
+<td>mensagem de grupo recebida</td>
+</tr>
+<tr>
+<td><code>FRECV</code></td>
+<td><code>FRECV &lt;remetente&gt; &lt;arquivo&gt; &lt;tamanhoBytes&gt;</code></td>
+<td>cabeçalho de recebimento de arquivo; em seguida chegam os bytes do arquivo</td>
+</tr>
+</tbody>
+</table>
+<h4>Códigos de erro</h4>
+<table>
+<thead>
+<tr>
+<th>Código</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400</code></td>
+<td>argumentos inválidos</td>
+</tr>
+<tr>
+<td><code>401</code></td>
+<td>autenticação obrigatória</td>
+</tr>
+<tr>
+<td><code>402</code></td>
+<td>usuário já logado</td>
+</tr>
+<tr>
+<td><code>403</code></td>
+<td>acesso negado</td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>usuário ou grupo não encontrado</td>
+</tr>
+<tr>
+<td><code>405</code></td>
+<td>comando desconhecido</td>
+</tr>
+<tr>
+<td><code>500</code></td>
+<td>erro interno</td>
+</tr>
+</tbody>
+</table>
+<h3>5.3 Exemplo de fluxo de mensagem direta</h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant A as Cliente Alice
+    participant B as ChatServer/ClientHandler
+    participant U as UserService
+    participant C as AccessControlService
+    participant M as MessageService
+    participant D as Cliente Bob
+
+    A-&gt;&gt;B: MSG bob Olá Bob
+    B-&gt;&gt;U: findUser(&quot;bob&quot;)
+    B-&gt;&gt;C: checkCommunicationAllowed(orgaoAlice, orgaoBob)
+    B-&gt;&gt;M: createDirectMessage(&quot;alice&quot;, &quot;bob&quot;, &quot;Olá Bob&quot;)
+    B--&gt;&gt;D: RECV alice Olá Bob
+    B--&gt;&gt;A: OK Mensagem enviada para bob
+</code></pre>
+<h2>6. Modelo de comunicação</h2>
+<p>O sistema combina mais de um estilo de comunicação:</p>
+<ul>
+<li><code>síncrono</code> para comandos do cliente (<code>LOGIN</code>, <code>LIST</code>, <code>GCREATE</code>, <code>QUIT</code>);</li>
+<li><code>assíncrono com push do servidor</code> para entrega de mensagens recebidas por outro usuário;</li>
+<li><code>orientado a mensagem</code> para conversas privadas e de grupo;</li>
+<li><code>publicar/assinar simplificado</code> para grupos, em que o emissor publica para um grupo e o broker entrega a todos os membros online;</li>
+<li><code>streaming binário</code> para arquivos, usando a mesma conexão TCP após o comando <code>FILE</code>.</li>
+</ul>
+<p>Na PoC, toda a comunicação passa por um único broker. No MVP, o mesmo modelo deve ser preservado, mas distribuído entre brokers regionais com descoberta de sessão e persistência compartilhada.</p>
+<h2>7. Interfaces entre módulos</h2>
+<h3>7.1 Interfaces internas na PoC</h3>
+<p>As interfaces internas são chamadas diretas entre objetos Java no mesmo processo. O ponto central é o <code>ClientHandler</code>, que atua como orquestrador da sessão.</p>
+<table>
+<thead>
+<tr>
+<th>Origem</th>
+<th>Destino</th>
+<th>Operação</th>
+<th>Efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>UserService</code></td>
+<td><code>authenticate</code></td>
+<td>autentica ou registra usuário</td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>UserService</code></td>
+<td><code>findUser</code></td>
+<td>valida existência de destinatário</td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>MessageService</code></td>
+<td><code>createDirectMessage</code></td>
+<td>registra mensagem privada</td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>MessageService</code></td>
+<td><code>createGroupMessage</code></td>
+<td>registra mensagem de grupo</td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>GroupService</code></td>
+<td><code>createGroup</code>, <code>joinGroup</code>, <code>leaveGroup</code>, <code>getMembers</code></td>
+<td>gerencia grupos</td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>AccessControlService</code></td>
+<td><code>requireAuthentication</code>, <code>checkCommunicationAllowed</code></td>
+<td>aplica regras de acesso</td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>FileTransferService</code></td>
+<td><code>receiveFileData</code>, <code>sendFileData</code></td>
+<td>transfere arquivo</td>
+</tr>
+<tr>
+<td><code>ClientHandler</code></td>
+<td><code>AuditService</code></td>
+<td><code>logAction</code></td>
+<td>registra auditoria</td>
+</tr>
+<tr>
+<td><code>ChatServer</code></td>
+<td><code>ClientHandler</code></td>
+<td><code>sendMessage</code></td>
+<td>entrega evento a cliente online</td>
+</tr>
+</tbody>
+</table>
+<h3>7.2 Interfaces recomendadas para o MVP distribuído</h3>
+<p>No MVP distribuído, as mesmas responsabilidades podem ser externalizadas como serviços internos com contratos estáveis. Uma opção é expor essas interfaces via RPC interno:</p>
+<table>
+<thead>
+<tr>
+<th>Serviço</th>
+<th>Operações mínimas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Diretório de usuários</td>
+<td><code>AuthenticateUser</code>, <code>FindUser</code>, <code>SearchUsers</code>, <code>SetPresence</code>, <code>GetPresence</code></td>
+</tr>
+<tr>
+<td>Controle de acesso</td>
+<td><code>CanCommunicate</code>, <code>CanJoinGroup</code>, <code>CanPostToGroup</code>, <code>BlockOrgPair</code>, <code>UnblockOrgPair</code></td>
+</tr>
+<tr>
+<td>Grupos</td>
+<td><code>CreateGroup</code>, <code>AddMember</code>, <code>RemoveMember</code>, <code>ListGroups</code>, <code>ListMembers</code></td>
+</tr>
+<tr>
+<td>Mensagens</td>
+<td><code>PersistDirectMessage</code>, <code>PersistGroupMessage</code>, <code>LoadConversation</code>, <code>LoadGroupHistory</code>, <code>PublishEnvelope</code></td>
+</tr>
+<tr>
+<td>Arquivos</td>
+<td><code>InitiateUpload</code>, <code>StoreChunk</code>, <code>FinalizeUpload</code>, <code>ReadMetadata</code>, <code>OpenDownload</code></td>
+</tr>
+<tr>
+<td>Auditoria</td>
+<td><code>AppendAuditEvent</code>, <code>ReadAuditTrail</code></td>
+</tr>
+</tbody>
+</table>
+<h2>8. Modelo de dados e identificação</h2>
+<h3>8.1 Identidade</h3>
+<ul>
+<li>Usuário: identificado de forma única pelo <code>username</code>.</li>
+<li>Grupo: identificado de forma única pelo <code>name</code>.</li>
+<li>Órgão/autarquia: atributo associado ao usuário para aplicação de ACLs.</li>
+</ul>
+<h3>8.2 Entidades da PoC</h3>
+<table>
+<thead>
+<tr>
+<th>Entidade</th>
+<th>Campos principais</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>User</code></td>
+<td><code>username</code>, <code>password</code>, <code>orgao</code></td>
+<td>senha fica em texto simples em memória na PoC</td>
+</tr>
+<tr>
+<td><code>Group</code></td>
+<td><code>name</code>, <code>owner</code>, <code>members</code>, <code>isPrivate</code></td>
+<td>membros armazenados em <code>ConcurrentHashMap.newKeySet()</code></td>
+</tr>
+<tr>
+<td><code>Message</code></td>
+<td><code>sender</code>, <code>receiver/groupName</code>, <code>content</code>, <code>timestamp</code></td>
+<td>ordenação atual é apenas temporal local</td>
+</tr>
+</tbody>
+</table>
+<h3>8.3 Modelo recomendado para causalidade no MVP</h3>
+<p>Para cumprir integralmente o requisito de histórico com ordem causal e múltiplos dispositivos, cada mensagem do MVP deve incluir:</p>
+<ul>
+<li><code>messageId</code> global;</li>
+<li><code>conversationId</code> ou <code>groupId</code>;</li>
+<li><code>senderUserId</code>;</li>
+<li><code>senderDeviceId</code>;</li>
+<li><code>serverSequence</code>;</li>
+<li><code>vectorClock</code> ou dependências causais equivalentes;</li>
+<li><code>timestampCliente</code> e <code>timestampServidor</code>;</li>
+<li><code>hashIntegridade</code>.</li>
+</ul>
+<p>Na PoC atual, o histórico é apenas em memória, com <code>LocalDateTime.now()</code>, sem vetor de causalidade, persistência ou sincronização entre dispositivos.</p>
+<h2>9. Transparências do sistema</h2>
+<h3>9.1 Transparência de acesso</h3>
+<p>Presente de forma parcial. O cliente usa o mesmo conjunto de comandos independentemente do destinatário ou grupo. No entanto, o protocolo ainda exige que o cliente conheça a sintaxe textual e não existe SDK oficial.</p>
+<h3>9.2 Transparência de localização</h3>
+<p>Parcial. O usuário final se comunica por identificadores lógicos (<code>username</code>, <code>groupName</code>) sem conhecer o socket do destinatário. Por outro lado, ainda precisa conhecer manualmente o endereço do servidor.</p>
+<h3>9.3 Transparência de concorrência</h3>
+<p>Presente no nível básico. O servidor aceita múltiplos clientes simultâneos com <code>ExecutorService</code> e estruturas <code>ConcurrentHashMap</code>. Ainda assim, não há isolamento transacional nem coordenação distribuída de concorrência.</p>
+<h3>9.4 Transparência de replicação</h3>
+<p>Ausente na PoC. Todos os dados ficam em um único processo e não há réplicas. No MVP, deve existir replicação do diretório, histórico, auditoria e estado de sessão.</p>
+<h3>9.5 Transparência a falhas</h3>
+<p>Parcial. O servidor detecta desconexões por exceção de socket ou fim de fluxo, mas não possui retry, reconexão, failover ou recuperação de mensagens offline.</p>
+<h2>10. Escalabilidade horizontal e vertical</h2>
+<h3>10.1 Escalabilidade vertical</h3>
+<p>O desenho atual escala verticalmente com:</p>
+<ul>
+<li>aumento de CPU e memória da JVM;</li>
+<li>ajuste do tamanho de heap;</li>
+<li>eventual troca de <code>newCachedThreadPool</code> por pool com limites e fila;</li>
+<li>otimização do tamanho máximo de arquivo.</li>
+</ul>
+<p>Essa abordagem é suficiente para o laboratório e para uma PoC de baixa escala, mas não para um cenário federativo nacional.</p>
+<h3>10.2 Escalabilidade horizontal</h3>
+<p>Para suportar crescimento orgânico e expansão geográfica, o MVP deve evoluir para:</p>
+<ul>
+<li>múltiplos brokers de sessão atrás de balanceador;</li>
+<li>particionamento por região, órgão ou hash de usuário;</li>
+<li>persistência externa compartilhada;</li>
+<li>replicação do log de auditoria;</li>
+<li>armazenamento de arquivos fora do processo do broker;</li>
+<li>cache distribuído para presença e resolução de sessão;</li>
+<li>filas internas para desacoplamento entre auditoria, persistência e entrega.</li>
+</ul>
+<h3>10.3 Justificativa da arquitetura</h3>
+<p>A arquitetura distribuída em camadas foi escolhida porque:</p>
+<ul>
+<li>reduz o acoplamento entre transporte, domínio e persistência;</li>
+<li>permite escalar mensagens, arquivos e auditoria de maneira independente;</li>
+<li>favorece implantação geograficamente distribuída;</li>
+<li>facilita atendimento futuro de requisitos de conformidade e soberania digital.</li>
+</ul>
+<h2>11. Falhas, detecção, prevenção e recuperação</h2>
+<h3>11.1 Detecção</h3>
+<ul>
+<li><code>PoC atual</code>: exceções de I/O, desconexão detectada por <code>readLine() == null</code>, erros de parsing e validação.</li>
+<li><code>MVP documentado</code>: health checks, métricas de latência, heartbeat de sessão, circuit breaker e monitoramento de backlog.</li>
+</ul>
+<h3>11.2 Prevenção</h3>
+<ul>
+<li>validação de autenticação antes de operações sensíveis;</li>
+<li>verificação de existência de usuários e grupos;</li>
+<li>restrições de comunicação entre órgãos;</li>
+<li>limite de 10 MB por arquivo na PoC;</li>
+<li>trilha de auditoria por evento.</li>
+</ul>
+<h3>11.3 Recuperação</h3>
+<ul>
+<li><code>PoC atual</code>: reinício manual do processo; estado em memória é perdido; <code>audit.log</code> é preservado.</li>
+<li><code>MVP documentado</code>: restauração automática do estado a partir de armazenamento durável, reprocessamento de eventos, retry de entrega e mecanismo de fila para usuários offline.</li>
+</ul>
+<h3>11.4 Alta disponibilidade</h3>
+<p>Não existe alta disponibilidade real na PoC, pois há ponto único de falha. Para o MVP, recomenda-se:</p>
+<ul>
+<li>brokers em modo ativo-ativo;</li>
+<li>persistência replicada;</li>
+<li>armazenamento de auditoria imutável e redundante;</li>
+<li>failover entre zonas de disponibilidade;</li>
+<li>balanceamento com drenagem de conexões em manutenção.</li>
+</ul>
+<h2>12. Segurança</h2>
+<h3>12.1 Autenticidade</h3>
+<ul>
+<li><code>PoC atual</code>: autenticidade baseada apenas em <code>username + senha</code>, validada pelo <code>UserService</code>.</li>
+<li><code>Limitação</code>: não há assinatura de mensagens nem prova de integridade de arquivo.</li>
+<li><code>MVP recomendado</code>: TLS, senha com hash forte, tokens de sessão, assinatura/HMAC por mensagem e checksum de arquivo.</li>
+</ul>
+<h3>12.2 Não repúdio</h3>
+<ul>
+<li><code>PoC atual</code>: existe <code>audit.log</code> com data, usuário, ação e detalhes.</li>
+<li><code>Limitação</code>: o log não é imutável nem assinado digitalmente.</li>
+<li><code>MVP recomendado</code>: trilha append-only com carimbo do tempo confiável, retenção, versionamento e assinatura institucional.</li>
+</ul>
+<h3>12.3 Confidencialidade</h3>
+<ul>
+<li><code>PoC atual</code>: não atendida integralmente; o tráfego ocorre em texto claro sobre TCP.</li>
+<li><code>MVP recomendado</code>: TLS ponta a servidor, criptografia em repouso e controle de acesso por perfis e órgãos.</li>
+</ul>
+<h2>13. Aderência aos requisitos da avaliação</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requisito</th>
+<th>Situação no PoC atual</th>
+<th>Direcionamento do MVP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>R01</code></td>
+<td>Arquitetura distribuída especificada</td>
+<td>parcialmente atendido pelo código; detalhado neste documento</td>
+<td>expandir para múltiplos brokers e persistência externa</td>
+</tr>
+<tr>
+<td><code>R02</code></td>
+<td>Protocolos de aplicação e transporte</td>
+<td>atendido</td>
+<td>manter TCP e adicionar TLS</td>
+</tr>
+<tr>
+<td><code>R03</code></td>
+<td>Modelo de comunicação</td>
+<td>atendido parcialmente</td>
+<td>consolidar assíncrono com entrega persistente</td>
+</tr>
+<tr>
+<td><code>R04</code></td>
+<td>Interfaces entre módulos</td>
+<td>atendido neste documento</td>
+<td>externalizar serviços internos em RPC interno</td>
+</tr>
+<tr>
+<td><code>R05</code></td>
+<td>Funções, métodos e serviços expostos</td>
+<td>atendido neste documento</td>
+<td>manter contratos estáveis por serviço</td>
+</tr>
+<tr>
+<td><code>R06</code></td>
+<td>Tipos de transparência</td>
+<td>atendido neste documento</td>
+<td>ampliar replicação e falhas</td>
+</tr>
+<tr>
+<td><code>R07</code></td>
+<td>Escalabilidade horizontal e vertical</td>
+<td>parcialmente atendido</td>
+<td>distribuir brokers, estado e storage</td>
+</tr>
+<tr>
+<td><code>R08</code></td>
+<td>Tolerância a falhas e alta disponibilidade</td>
+<td>parcialmente atendido</td>
+<td>replicação, failover e replay</td>
+</tr>
+<tr>
+<td><code>R09</code></td>
+<td>Identificação única de usuários e grupos</td>
+<td>atendido</td>
+<td>manter unicidade com persistência transacional</td>
+</tr>
+<tr>
+<td><code>R10</code></td>
+<td>Mensagens entre usuários</td>
+<td>atendido</td>
+<td>manter com persistência e offline delivery</td>
+</tr>
+<tr>
+<td><code>R11</code></td>
+<td>Busca por usuários cadastrados</td>
+<td>parcialmente atendido; existe <code>listAllUsers</code>, mas o protocolo expõe apenas <code>LIST</code> de usuários online</td>
+<td>adicionar busca e listagem de usuários registrados</td>
+</tr>
+<tr>
+<td><code>R12</code></td>
+<td>Envio de arquivos</td>
+<td>atendido parcialmente; apenas para destinatário online</td>
+<td>persistir arquivo e permitir download posterior</td>
+</tr>
+<tr>
+<td><code>R13</code></td>
+<td>Comunicação em grupos privados ou institucionais</td>
+<td>parcialmente atendido</td>
+<td>incluir criação de grupo privado/institucional e papéis</td>
+</tr>
+<tr>
+<td><code>R14</code></td>
+<td>Restrições entre órgãos/autarquias</td>
+<td>parcialmente atendido; regra existe, mas não há comando administrativo no protocolo</td>
+<td>externalizar ACL com interface de gestão</td>
+</tr>
+<tr>
+<td><code>R15</code></td>
+<td>Restrições de ingresso em grupos</td>
+<td>parcialmente atendido</td>
+<td>workflow de convite/aprovação</td>
+</tr>
+<tr>
+<td><code>R16</code></td>
+<td>Restrições de comunicação entre membros de grupos</td>
+<td>parcialmente atendido; somente membros podem receber/enviar no grupo</td>
+<td>incluir ACL por grupo, papel e canal</td>
+</tr>
+<tr>
+<td><code>R17</code></td>
+<td>Histórico completo com ordem causal e multi-dispositivo</td>
+<td>não atendido integralmente</td>
+<td>persistência durável, sincronização e causalidade</td>
+</tr>
+<tr>
+<td><code>R18</code></td>
+<td>Autenticidade de mensagens e arquivos</td>
+<td>parcialmente atendido</td>
+<td>assinatura/HMAC e identidade forte</td>
+</tr>
+<tr>
+<td><code>R19</code></td>
+<td>Não repúdio</td>
+<td>parcialmente atendido</td>
+<td>auditoria imutável e assinada</td>
+</tr>
+<tr>
+<td><code>R20</code></td>
+<td>Confidencialidade</td>
+<td>não atendido integralmente</td>
+<td>TLS e criptografia em repouso</td>
+</tr>
+<tr>
+<td><code>R21</code></td>
+<td>Desempenho e escalabilidade</td>
+<td>parcialmente atendido</td>
+<td>distribuição por região, filas e storage externo</td>
+</tr>
+</tbody>
+</table>
+<h2>14. Limitações conhecidas da PoC atual</h2>
+<ul>
+<li>não existe cliente de chat dedicado versionado neste repositório;</li>
+<li>não existe arquivo de build (<code>pom.xml</code> ou <code>build.gradle</code>);</li>
+<li>usuários, grupos e mensagens ficam apenas em memória;</li>
+<li>não há entrega offline de mensagens e arquivos;</li>
+<li>não há criptografia de tráfego;</li>
+<li>senhas são armazenadas em texto simples em memória;</li>
+<li>grupos privados não estão expostos no protocolo atual;</li>
+<li>a ordenação de mensagens não implementa causalidade;</li>
+<li><code>LIST</code> lista usuários online, e não uma busca de cadastrados;</li>
+<li>o arquivo recebido é descartado se o destinatário estiver offline.</li>
+</ul>
+<h2>15. Roadmap recomendado</h2>
+<ol>
+<li>Adicionar cliente CLI oficial ao repositório, com suporte a mensagens e arquivos.</li>
+<li>Introduzir build automatizado com Maven ou Gradle.</li>
+<li>Persistir usuários, grupos, histórico e metadados de arquivo.</li>
+<li>Implementar TLS e armazenamento seguro de credenciais.</li>
+<li>Implementar fila offline e sincronização de histórico.</li>
+<li>Adicionar causalidade por conversa com metadados de ordenação.</li>
+<li>Externalizar ACL, auditoria e storage para permitir escala horizontal.</li>
+</ol>
+<h2>16. Conclusão</h2>
+<p>O código atual comprova a viabilidade do protocolo próprio sobre sockets TCP, o tratamento concorrente de múltiplas conexões e a separação básica de responsabilidades do domínio. Para fins acadêmicos, a PoC demonstra o núcleo funcional esperado. Para fins de MVP nacional e aderência completa aos requisitos da disciplina, a evolução natural é transformar o broker centralizado em uma solução distribuída com persistência, segurança forte, causalidade e alta disponibilidade.</p>
