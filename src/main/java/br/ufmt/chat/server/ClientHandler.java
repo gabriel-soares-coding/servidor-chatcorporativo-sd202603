@@ -62,6 +62,10 @@ public class ClientHandler implements Runnable {
     private User user;
     private boolean running;
 
+    // Conexão de federação
+    private boolean isPeerConnection = false;
+    private String peerDomain = null;
+
     public ClientHandler(Socket socket, ChatServer server) {
         this.socket = socket;
         this.server = server;
@@ -107,6 +111,15 @@ public class ClientHandler implements Runnable {
     private void handleCommand(Command command) {
         try {
             switch (command.getType()) {
+                case ProtocolConstants.CMD_FED_CONNECT:
+                    handleFedConnect(command);
+                    break;
+                case ProtocolConstants.CMD_FED_MSG:
+                    handleFedMsg(command);
+                    break;
+                case ProtocolConstants.CMD_FED_FILE:
+                    handleFedFile(command);
+                    break;
                 case ProtocolConstants.CMD_LOGIN:
                     handleLogin(command);
                     break;
@@ -130,6 +143,12 @@ public class ClientHandler implements Runnable {
                     break;
                 case ProtocolConstants.CMD_GLEAVE:
                     handleGLeave(command);
+                    break;
+                case ProtocolConstants.CMD_HISTORY:
+                    handleHistory();
+                    break;
+                case ProtocolConstants.CMD_GHISTORY:
+                    handleGHistory(command);
                     break;
                 case ProtocolConstants.CMD_FILE:
                     handleFile(command);
@@ -201,6 +220,31 @@ public class ClientHandler implements Runnable {
 
         String receiver = args[0];
         String text = args[1];
+
+        // Lógica de Federação
+        if (receiver.contains("@")) {
+            String[] parts = receiver.split("@", 2);
+            String targetUser = parts[0];
+            String targetDomain = parts[1];
+
+            if (!targetDomain.equalsIgnoreCase(server.getDomainId())) {
+                // Roteia mensagem via federação
+                String fedCommand = ProtocolConstants.CMD_FED_MSG + " " 
+                        + username + "@" + server.getDomainId() + " " 
+                        + targetUser + " " + text;
+                boolean routed = server.routeMessage(targetDomain, fedCommand);
+                if (routed) {
+                    auditService.logAction(username, "MSG_FEDERADA", "para=" + receiver);
+                    sendMessage(ProtocolConstants.RESP_OK + " Mensagem enviada para " + receiver + " (via federação)");
+                    return;
+                } else {
+                    throw new ChatException(ProtocolConstants.ERR_USER_NOT_FOUND, 
+                            "Broker do estado '" + targetDomain + "' indisponível ou não cadastrado.");
+                }
+            } else {
+                receiver = targetUser; // Se for o mesmo domínio, trata como local
+            }
+        }
 
         // Verifica se o destinatário existe
         User receiverUser = userService.findUser(receiver);
@@ -354,6 +398,52 @@ public class ClientHandler implements Runnable {
     }
 
     /**
+     * HISTORY — Retorna o histórico de mensagens diretas do usuário (R17)
+     */
+    private void handleHistory() throws ChatException {
+        accessControlService.requireAuthentication(username);
+
+        List<br.ufmt.chat.model.Message> history = messageService.getDirectHistory(username);
+        auditService.logAction(username, "HISTORY", "");
+
+        sendMessage(ProtocolConstants.RESP_OK + " Histórico de mensagens diretas (" + history.size() + "):");
+        for (br.ufmt.chat.model.Message msg : history) {
+            sendMessage(msg.toString());
+        }
+        sendMessage(ProtocolConstants.RESP_OK + " Fim do histórico");
+    }
+
+    /**
+     * GHISTORY <grupo> — Retorna o histórico de mensagens de um grupo (R17)
+     */
+    private void handleGHistory(Command command) throws ChatException {
+        accessControlService.requireAuthentication(username);
+
+        String[] args = command.getArgs();
+        if (args.length < 1) {
+            throw new ChatException(ProtocolConstants.ERR_INVALID_ARGS,
+                    "Uso correto: GHISTORY <grupo>");
+        }
+
+        String groupName = args[0];
+
+        // Verifica se é membro do grupo (R16)
+        if (!groupService.isMember(groupName, username)) {
+            throw new ChatException(ProtocolConstants.ERR_ACCESS_DENIED,
+                    "Você não é membro do grupo: " + groupName);
+        }
+
+        List<br.ufmt.chat.model.Message> history = messageService.getGroupHistory(groupName);
+        auditService.logAction(username, "GHISTORY", "grupo=" + groupName);
+
+        sendMessage(ProtocolConstants.RESP_OK + " Histórico do grupo " + groupName + " (" + history.size() + "):");
+        for (br.ufmt.chat.model.Message msg : history) {
+            sendMessage(msg.toString());
+        }
+        sendMessage(ProtocolConstants.RESP_OK + " Fim do histórico");
+    }
+
+    /**
      * FILE <destinatario> <nomeArquivo> <tamanhoBytes>
      * Após este comando, o cliente envia os bytes brutos do arquivo.
      */
@@ -375,6 +465,31 @@ public class ClientHandler implements Runnable {
         } catch (NumberFormatException e) {
             throw new ChatException(ProtocolConstants.ERR_INVALID_ARGS,
                     "Tamanho do arquivo deve ser um número");
+        }
+
+        // Lógica de Federação
+        if (receiver.contains("@")) {
+            String[] parts = receiver.split("@", 2);
+            String targetUser = parts[0];
+            String targetDomain = parts[1];
+
+            if (!targetDomain.equalsIgnoreCase(server.getDomainId())) {
+                // Lê os bytes do remetente
+                byte[] fileData = fileTransferService.receiveFileData(rawInput, fileSize);
+                
+                // Roteia via federação
+                boolean routed = server.routeFile(targetDomain, username + "@" + server.getDomainId(), targetUser, fileName, fileData);
+                if (routed) {
+                    auditService.logAction(username, "FILE_FEDERADA", "para=" + receiver + " arquivo=" + fileName + " bytes=" + fileSize);
+                    sendMessage(ProtocolConstants.RESP_OK + " Arquivo '" + fileName + "' enviado para " + receiver + " (via federação)");
+                    return;
+                } else {
+                    throw new ChatException(ProtocolConstants.ERR_USER_NOT_FOUND, 
+                            "Broker do estado '" + targetDomain + "' indisponível para transferência de arquivo.");
+                }
+            } else {
+                receiver = targetUser; // Se for o mesmo domínio, trata como local
+            }
         }
 
         // Verifica se o destinatário existe
@@ -403,6 +518,97 @@ public class ClientHandler implements Runnable {
         } else {
             sendMessage(ProtocolConstants.RESP_OK + " Arquivo recebido, mas "
                     + receiver + " está offline");
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Handlers de Federação
+    // ---------------------------------------------------------------
+
+    /**
+     * FED_CONNECT <brokerOriginador>
+     */
+    private void handleFedConnect(Command command) throws ChatException {
+        String[] args = command.getArgs();
+        if (args.length < 1) {
+            throw new ChatException(ProtocolConstants.ERR_INVALID_ARGS,
+                    "Uso correto: FED_CONNECT <brokerOriginador>");
+        }
+        this.isPeerConnection = true;
+        this.peerDomain = args[0];
+        log.info("Conexão de federação aceita do broker regional: " + peerDomain);
+        sendMessage(ProtocolConstants.RESP_OK + " Handshake de federação aceito");
+    }
+
+    /**
+     * FED_MSG <remetenteCompleto> <destinatarioLocal> <texto>
+     */
+    private void handleFedMsg(Command command) throws ChatException {
+        if (!isPeerConnection) {
+            throw new ChatException(ProtocolConstants.ERR_ACCESS_DENIED, 
+                    "Apenas peer brokers podem executar o comando FED_MSG");
+        }
+        String[] args = command.getArgs();
+        if (args.length < 3) {
+            throw new ChatException(ProtocolConstants.ERR_INVALID_ARGS,
+                    "Uso correto: FED_MSG <remetenteCompleto> <destinatarioLocal> <texto>");
+        }
+        String sender = args[0];
+        String receiver = args[1];
+        String text = args[2];
+
+        // Entrega ao destinatário local
+        ClientHandler receiverHandler = server.getClient(receiver);
+        if (receiverHandler != null) {
+            receiverHandler.sendMessage(ProtocolConstants.RESP_RECV + " " + sender + " " + text);
+            sendMessage(ProtocolConstants.RESP_OK + " Mensagem federada entregue para " + receiver);
+        } else {
+            sendMessage(ProtocolConstants.RESP_ERR + " " + ProtocolConstants.ERR_USER_NOT_FOUND 
+                    + " Usuário local " + receiver + " offline");
+        }
+    }
+
+    /**
+     * FED_FILE <remetenteCompleto> <destinatarioLocal> <nomeArquivo> <tamanhoBytes>
+     * Seguido pelos bytes brutos do arquivo.
+     */
+    private void handleFedFile(Command command) throws ChatException {
+        if (!isPeerConnection) {
+            throw new ChatException(ProtocolConstants.ERR_ACCESS_DENIED, 
+                    "Apenas peer brokers podem executar o comando FED_FILE");
+        }
+        String[] args = command.getArgs();
+        if (args.length < 4) {
+            throw new ChatException(ProtocolConstants.ERR_INVALID_ARGS,
+                    "Uso correto: FED_FILE <remetenteCompleto> <destinatarioLocal> <nomeArquivo> <tamanhoBytes>");
+        }
+        String sender = args[0];
+        String receiver = args[1];
+        String fileName = args[2];
+        long fileSize;
+        try {
+            fileSize = Long.parseLong(args[3]);
+        } catch (NumberFormatException e) {
+            throw new ChatException(ProtocolConstants.ERR_INVALID_ARGS, "Tamanho de arquivo deve ser numérico");
+        }
+
+        // Lê bytes do socket do broker parceiro
+        byte[] fileData = fileTransferService.receiveFileData(rawInput, fileSize);
+
+        // Entrega ao destinatário local
+        ClientHandler receiverHandler = server.getClient(receiver);
+        if (receiverHandler != null) {
+            receiverHandler.sendMessage(ProtocolConstants.RESP_FRECV + " " + sender + " " + fileName + " " + fileSize);
+            try {
+                fileTransferService.sendFileData(receiverHandler.getRawOutput(), fileData);
+                sendMessage(ProtocolConstants.RESP_OK + " Arquivo federado entregue para " + receiver);
+            } catch (ChatException e) {
+                log.error("Erro ao enviar arquivo federado para " + receiver, e);
+                sendMessage(ProtocolConstants.RESP_ERR + " " + ProtocolConstants.ERR_INTERNAL + " Erro ao escrever arquivo local");
+            }
+        } else {
+            sendMessage(ProtocolConstants.RESP_ERR + " " + ProtocolConstants.ERR_USER_NOT_FOUND 
+                    + " Usuário local " + receiver + " offline");
         }
     }
 

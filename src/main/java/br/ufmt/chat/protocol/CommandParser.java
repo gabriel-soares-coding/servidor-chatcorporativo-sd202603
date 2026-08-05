@@ -41,6 +41,21 @@ public class CommandParser {
                 args = extractArgs(parts, 3);
                 break;
 
+            case ProtocolConstants.CMD_FED_CONNECT:
+                // FED_CONNECT <brokerOriginador>
+                args = extractArgs(parts, 1);
+                break;
+
+            case ProtocolConstants.CMD_FED_MSG:
+                // FED_MSG <remetenteCompleto> <destinatarioLocal> <texto...>
+                args = extractWithTrailingText(parts, 2);
+                break;
+
+            case ProtocolConstants.CMD_FED_FILE:
+                // FED_FILE <remetenteCompleto> <destinatarioLocal> <nomeArquivo> <tamanhoBytes>
+                args = extractArgs(parts, 4);
+                break;
+
             case ProtocolConstants.CMD_MSG:
                 // MSG <destinatario> <texto...>
                 args = extractWithTrailingText(parts, 1);
@@ -63,13 +78,15 @@ public class CommandParser {
 
             case ProtocolConstants.CMD_GJOIN:
             case ProtocolConstants.CMD_GLEAVE:
-                // GJOIN/GLEAVE <grupo>
+            case ProtocolConstants.CMD_GHISTORY:
+                // GJOIN/GLEAVE/GHISTORY <grupo>
                 args = extractArgs(parts, 1);
                 break;
 
             case ProtocolConstants.CMD_LIST:
             case ProtocolConstants.CMD_GLIST:
             case ProtocolConstants.CMD_QUIT:
+            case ProtocolConstants.CMD_HISTORY:
                 args = new String[0];
                 break;
 

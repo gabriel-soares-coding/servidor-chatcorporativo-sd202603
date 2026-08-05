@@ -24,6 +24,15 @@ public final class ProtocolConstants {
     public static final String CMD_GLEAVE  = "GLEAVE";
     public static final String CMD_FILE    = "FILE";
     public static final String CMD_QUIT    = "QUIT";
+    public static final String CMD_HISTORY  = "HISTORY";
+    public static final String CMD_GHISTORY = "GHISTORY";
+
+    // ---------------------------------------------------------------
+    // Comandos de federação (S <-> S)
+    // ---------------------------------------------------------------
+    public static final String CMD_FED_CONNECT = "FED_CONNECT";
+    public static final String CMD_FED_MSG     = "FED_MSG";
+    public static final String CMD_FED_FILE    = "FED_FILE";
 
     // ---------------------------------------------------------------
     // Respostas do servidor (S → C)
