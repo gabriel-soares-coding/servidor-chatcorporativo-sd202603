@@ -91,14 +91,34 @@ RECV cristina@MT Olá Cristina! Esta mensagem cruzou as fronteiras via federaç�
 ```
 
 ### Passo 3: Enviar arquivo federado
-Para enviar um arquivo federado, a Cristina envia:
-```text
-FILE carlos@MS arquivo.txt 12
-```
-Seguido pelo conteúdo do arquivo de 12 bytes: `Ola_Mundo_SD` no stream.
+Para enviar um arquivo federado, o cliente remetente envia o cabeçalho `FILE <destinatario> <nomeArquivo> <tamanhoBytes>\n` seguido dos bytes binários do arquivo. 
+O destinatário recebe a notificação `+FRECV <remetente> <nomeArquivo> <tamanhoBytes>\n` seguida dos bytes binários do arquivo no stream.
 
-Carlos receberá a notificação:
-```text
-FRECV cristina@MT arquivo.txt 12
+Como o envio/recebimento envolve bytes brutos binários, o cliente precisa ler exatamente a quantidade de bytes informada em `tamanhoBytes` logo após o cabeçalho `+FRECV`.
+
+#### Exemplo em PowerShell (Windows):
+
+##### 1. No Terminal do Destinatário (Maria em MS - Porta 5001):
+Execute o arquivo .\teste-terminal1.ps1
+
+##### 2. No Terminal do Remetente (João em MT - Porta 5000):
+Execute o arquivo .\teste-terminal2.ps1
+
+### Exemplo no Linux (Netcat)
+
+Destinatário em seu terminal
+```bash
+nc localhost 5001
+LOGIN maria 123 SESP
 ```
-Seguido pelos 12 bytes correspondentes.
+
+Remetente:
+```bash
+(echo -e "LOGIN joao 123 SESP\nFILE maria@MS teste.txt 12"; echo -n "Hello World!") | nc localhost 5000
+```
+
+Destinatário vê:
+```text
++FRECV joao@MT teste.txt 12
+Hello World!
+```
