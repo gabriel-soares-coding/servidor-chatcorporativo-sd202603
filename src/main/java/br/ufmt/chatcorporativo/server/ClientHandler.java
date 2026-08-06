@@ -93,7 +93,7 @@ public class ClientHandler implements Runnable {
                     + ". Use LOGIN <usuario> <senha> <orgao> para entrar.");
 
             String line;
-            while (running && (line = input.readLine()) != null) {
+            while (running && (line = readLineFromStream(rawInput)) != null) {
                 Command command = parser.parse(line);
                 handleCommand(command);
             }
@@ -102,6 +102,28 @@ public class ClientHandler implements Runnable {
         } finally {
             disconnect();
         }
+    }
+
+    /**
+     * Lê uma linha de texto do InputStream sem realizar buffer adiantado (read-ahead).
+     * Isso garante que os bytes brutos binários do comando FILE/FED_FILE permaneçam
+     * intactos no stream para leitura posterior.
+     */
+    private String readLineFromStream(InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        int b;
+        while ((b = in.read()) != -1) {
+            if (b == '\n') {
+                break;
+            }
+            if (b != '\r') {
+                baos.write(b);
+            }
+        }
+        if (b == -1 && baos.size() == 0) {
+            return null;
+        }
+        return baos.toString(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /**
@@ -495,14 +517,14 @@ public class ClientHandler implements Runnable {
             }
         }
 
+        // Lê os bytes do arquivo do remetente (R12)
+        byte[] fileData = fileTransferService.receiveFileData(rawInput, fileSize);
+
         // Verifica se o destinatário existe
         User receiverUser = userService.findUser(receiver);
 
         // Verifica restrições entre órgãos (R14)
         accessControlService.checkCommunicationAllowed(user.getOrgao(), receiverUser.getOrgao());
-
-        // Lê os bytes do arquivo do remetente (R12)
-        byte[] fileData = fileTransferService.receiveFileData(rawInput, fileSize);
         auditService.logAction(username, "FILE",
                 "para=" + receiver + " arquivo=" + fileName + " bytes=" + fileSize);
 
