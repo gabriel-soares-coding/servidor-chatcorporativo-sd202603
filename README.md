@@ -12,6 +12,13 @@ O sistema adota uma **Arquitetura Híbrida**:
 
 ---
 
+## Requisitos
+
+- Java 25;
+- Apache Maven (foi usada a versão 3.9.16 neste projeto).
+
+---
+
 ## 🛠️ Como Compilar
 
 O projeto é baseado em Java puro (sem frameworks pesados) para maximizar o controle de sockets e a eficiência de rede. 
@@ -19,10 +26,13 @@ O projeto é baseado em Java puro (sem frameworks pesados) para maximizar o cont
 Para compilar o código fonte, execute o seguinte comando no diretório raiz do projeto:
 
 ```bash
-javac -d target/classes src/main/java/br/ufmt/chat/**/*.java src/main/java/br/ufmt/chat/*.java
+mvn clean compile
 ```
 
-*(Certifique-se de que o diretório `target/classes` existe ou crie-o antes de executar).*
+Agora gere o jar:
+```bash
+mvn clean package
+```
 
 ---
 
@@ -31,15 +41,15 @@ javac -d target/classes src/main/java/br/ufmt/chat/**/*.java src/main/java/br/uf
 Para testar a federação, você pode iniciar dois brokers regionais simulando diferentes estados (por exemplo, Mato Grosso `MT` e Mato Grosso do Sul `MS`).
 
 ### 1. Iniciar o Broker de Mato Grosso (MT) na porta 5000
-Este broker conhece o peer `MS` que roda no `localhost:5000`:
+Este broker conhece o peer `MT` que roda no `localhost:5000`:
 ```bash
-java -cp target/classes br.ufmt.chat.ServerMain 5000 MT MS=localhost:5000
+java -jar target/servidor-chatcorporativo-1.0.0.jar 5000 MT MS=localhost:5001
 ```
 
 ### 2. Iniciar o Broker de Mato Grosso do Sul (MS) na porta 5001
-Este broker conhece o peer `MT` que roda no `localhost:5000`:
+Este broker conhece o peer `MS` que roda no `localhost:5001`:
 ```bash
-java -cp target/classes br.ufmt.chat.ServerMain 5001 MS MT=localhost:5000
+java -jar target/servidor-chatcorporativo-1.0.0.jar 5001 MS MT=localhost:5000
 ```
 
 ---
