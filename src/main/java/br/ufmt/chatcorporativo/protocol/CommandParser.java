@@ -1,4 +1,4 @@
-package br.ufmt.chat.protocol;
+package br.ufmt.chatcorporativo.protocol;
 
 /**
  * Responsável por transformar a linha de texto enviada pelo cliente

@@ -1,12 +1,12 @@
-package br.ufmt.chat.service;
+package br.ufmt.chatcorporativo.service;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import br.ufmt.chat.exception.ChatException;
-import br.ufmt.chat.protocol.ProtocolConstants;
-import br.ufmt.chat.util.Logger;
+import br.ufmt.chatcorporativo.exception.ChatException;
+import br.ufmt.chatcorporativo.protocol.ProtocolConstants;
+import br.ufmt.chatcorporativo.util.Logger;
 
 /**
  * Serviço responsável pela transferência de arquivos via socket (R12).
@@ -20,7 +20,6 @@ import br.ufmt.chat.util.Logger;
 public class FileTransferService {
 
     private static final Logger log = new Logger("FileTransferService");
-    private static final int BUFFER_SIZE = 8192;
 
     /**
      * Lê os bytes do arquivo do InputStream do remetente.

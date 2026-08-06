@@ -1,4 +1,4 @@
-package br.ufmt.chat.model;
+package br.ufmt.chatcorporativo.model;
 
 import java.time.LocalDateTime;
 

@@ -1,4 +1,4 @@
-package br.ufmt.chat.server;
+package br.ufmt.chatcorporativo.server;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -9,13 +9,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import br.ufmt.chat.service.AccessControlService;
-import br.ufmt.chat.service.AuditService;
-import br.ufmt.chat.service.FileTransferService;
-import br.ufmt.chat.service.GroupService;
-import br.ufmt.chat.service.MessageService;
-import br.ufmt.chat.service.UserService;
-import br.ufmt.chat.util.Logger;
+import br.ufmt.chatcorporativo.service.AccessControlService;
+import br.ufmt.chatcorporativo.service.AuditService;
+import br.ufmt.chatcorporativo.service.FileTransferService;
+import br.ufmt.chatcorporativo.service.GroupService;
+import br.ufmt.chatcorporativo.service.MessageService;
+import br.ufmt.chatcorporativo.service.UserService;
+import br.ufmt.chatcorporativo.util.Logger;
 
 /**
  * Responsável por:
@@ -180,7 +180,7 @@ public class ChatServer {
         if (conn != null) {
             try {
                 synchronized (conn) {
-                    conn.send(br.ufmt.chat.protocol.ProtocolConstants.CMD_FED_FILE + " "
+                    conn.send(br.ufmt.chatcorporativo.protocol.ProtocolConstants.CMD_FED_FILE + " "
                             + sender + " " + receiver + " " + fileName + " " + fileData.length);
                     conn.socket.getOutputStream().write(fileData);
                     conn.socket.getOutputStream().flush();
@@ -200,8 +200,12 @@ public class ChatServer {
         String normalizedDomain = targetDomain.toUpperCase();
         
         PeerConnection conn = outboundPeers.get(normalizedDomain);
-        if (conn != null && conn.socket != null && !conn.socket.isClosed()) {
+        if (conn != null && conn.socket != null && !conn.socket.isClosed() && conn.output != null && !conn.output.checkError()) {
             return conn;
+        }
+        if (conn != null) {
+            conn.close();
+            outboundPeers.remove(normalizedDomain);
         }
 
         String address = peerAddresses.get(normalizedDomain);
@@ -221,7 +225,7 @@ public class ChatServer {
                     new java.io.OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
 
             // Realiza handshake
-            output.println(br.ufmt.chat.protocol.ProtocolConstants.CMD_FED_CONNECT + " " + domainId);
+            output.println(br.ufmt.chatcorporativo.protocol.ProtocolConstants.CMD_FED_CONNECT + " " + domainId);
 
             PeerConnection newConn = new PeerConnection(socket, output);
             outboundPeers.put(normalizedDomain, newConn);

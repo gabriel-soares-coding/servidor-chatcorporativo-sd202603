@@ -1,4 +1,4 @@
-package br.ufmt.chat.service;
+package br.ufmt.chatcorporativo.service;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -7,7 +7,7 @@ import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-import br.ufmt.chat.util.Logger;
+import br.ufmt.chatcorporativo.util.Logger;
 
 /**
  * Serviço de auditoria para garantir o não repúdio (R19).

@@ -1,12 +1,12 @@
-package br.ufmt.chat.service;
+package br.ufmt.chatcorporativo.service;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import br.ufmt.chat.exception.ChatException;
-import br.ufmt.chat.protocol.ProtocolConstants;
-import br.ufmt.chat.util.Logger;
+import br.ufmt.chatcorporativo.exception.ChatException;
+import br.ufmt.chatcorporativo.protocol.ProtocolConstants;
+import br.ufmt.chatcorporativo.util.Logger;
 
 /**
  * Serviço de controle de acesso entre órgãos e autarquias (R14, R15, R18).

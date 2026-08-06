@@ -1,14 +1,14 @@
-package br.ufmt.chat.service;
+package br.ufmt.chatcorporativo.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import br.ufmt.chat.exception.ChatException;
-import br.ufmt.chat.model.User;
-import br.ufmt.chat.protocol.ProtocolConstants;
-import br.ufmt.chat.util.Logger;
+import br.ufmt.chatcorporativo.exception.ChatException;
+import br.ufmt.chatcorporativo.model.User;
+import br.ufmt.chatcorporativo.protocol.ProtocolConstants;
+import br.ufmt.chatcorporativo.util.Logger;
 
 /**
  * Serviço responsável pelo registro, autenticação e busca de usuários (R09, R11, R18).

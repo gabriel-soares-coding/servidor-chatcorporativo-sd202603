@@ -1,4 +1,4 @@
-package br.ufmt.chat.exception;
+package br.ufmt.chatcorporativo.exception;
 
 /**
  * Exceção de negócio do sistema de chat.

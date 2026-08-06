@@ -1,6 +1,6 @@
-package br.ufmt.chat;
+package br.ufmt.chatcorporativo;
 
-import br.ufmt.chat.server.ChatServer;
+import br.ufmt.chatcorporativo.server.ChatServer;
 
 public class ServerMain {
 

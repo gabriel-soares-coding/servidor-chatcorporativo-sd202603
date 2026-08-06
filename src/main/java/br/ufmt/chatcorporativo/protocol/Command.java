@@ -1,4 +1,4 @@
-package br.ufmt.chat.protocol;
+package br.ufmt.chatcorporativo.protocol;
 
 /**
  * Representa um comando parseado recebido do cliente.

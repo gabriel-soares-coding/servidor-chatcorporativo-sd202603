@@ -1,4 +1,4 @@
-package br.ufmt.chat.server;
+package br.ufmt.chatcorporativo.server;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -10,19 +10,18 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Set;
 
-import br.ufmt.chat.exception.ChatException;
-import br.ufmt.chat.model.Message;
-import br.ufmt.chat.model.User;
-import br.ufmt.chat.protocol.Command;
-import br.ufmt.chat.protocol.CommandParser;
-import br.ufmt.chat.protocol.ProtocolConstants;
-import br.ufmt.chat.service.AccessControlService;
-import br.ufmt.chat.service.AuditService;
-import br.ufmt.chat.service.FileTransferService;
-import br.ufmt.chat.service.GroupService;
-import br.ufmt.chat.service.MessageService;
-import br.ufmt.chat.service.UserService;
-import br.ufmt.chat.util.Logger;
+import br.ufmt.chatcorporativo.exception.ChatException;
+import br.ufmt.chatcorporativo.model.User;
+import br.ufmt.chatcorporativo.protocol.Command;
+import br.ufmt.chatcorporativo.protocol.CommandParser;
+import br.ufmt.chatcorporativo.protocol.ProtocolConstants;
+import br.ufmt.chatcorporativo.service.AccessControlService;
+import br.ufmt.chatcorporativo.service.AuditService;
+import br.ufmt.chatcorporativo.service.FileTransferService;
+import br.ufmt.chatcorporativo.service.GroupService;
+import br.ufmt.chatcorporativo.service.MessageService;
+import br.ufmt.chatcorporativo.service.UserService;
+import br.ufmt.chatcorporativo.util.Logger;
 
 /**
  * Representa a sessão de um usuário conectado ao servidor.
@@ -90,7 +89,8 @@ public class ClientHandler implements Runnable {
             output = new PrintWriter(rawOutput, true);
 
             sendMessage(ProtocolConstants.RESP_OK + " Bem-vindo ao Chat Corporativo. "
-                    + "Use LOGIN <usuario> <senha> <orgao> para entrar.");
+                    + "Você está conectado ao domínio: " + server.getDomainId()
+                    + ". Use LOGIN <usuario> <senha> <orgao> para entrar.");
 
             String line;
             while (running && (line = input.readLine()) != null) {
@@ -109,6 +109,7 @@ public class ClientHandler implements Runnable {
      * Não implementa lógica de negócio — delega ao parser e aos serviços.
      */
     private void handleCommand(Command command) {
+        
         try {
             switch (command.getType()) {
                 case ProtocolConstants.CMD_FED_CONNECT:
@@ -234,6 +235,7 @@ public class ClientHandler implements Runnable {
                         + targetUser + " " + text;
                 boolean routed = server.routeMessage(targetDomain, fedCommand);
                 if (routed) {
+                    messageService.createDirectMessage(username, receiver, text);
                     auditService.logAction(username, "MSG_FEDERADA", "para=" + receiver);
                     sendMessage(ProtocolConstants.RESP_OK + " Mensagem enviada para " + receiver + " (via federação)");
                     return;
@@ -253,7 +255,8 @@ public class ClientHandler implements Runnable {
         accessControlService.checkCommunicationAllowed(user.getOrgao(), receiverUser.getOrgao());
 
         // Cria e registra a mensagem (R10, R17)
-        Message msg = messageService.createDirectMessage(username, receiver, text);
+        messageService.createDirectMessage(username, receiver, text);
+        
         auditService.logAction(username, "MSG", "para=" + receiver);
 
         // Entrega a mensagem ao destinatário se online
@@ -288,7 +291,7 @@ public class ClientHandler implements Runnable {
         }
 
         // Cria e registra a mensagem de grupo
-        Message msg = messageService.createGroupMessage(username, groupName, text);
+        messageService.createGroupMessage(username, groupName, text);
         auditService.logAction(username, "GMSG", "grupo=" + groupName);
 
         // Broadcast para membros online do grupo (R13)
@@ -403,11 +406,11 @@ public class ClientHandler implements Runnable {
     private void handleHistory() throws ChatException {
         accessControlService.requireAuthentication(username);
 
-        List<br.ufmt.chat.model.Message> history = messageService.getDirectHistory(username);
+        List<br.ufmt.chatcorporativo.model.Message> history = messageService.getDirectHistory(username);
         auditService.logAction(username, "HISTORY", "");
 
         sendMessage(ProtocolConstants.RESP_OK + " Histórico de mensagens diretas (" + history.size() + "):");
-        for (br.ufmt.chat.model.Message msg : history) {
+        for (br.ufmt.chatcorporativo.model.Message msg : history) {
             sendMessage(msg.toString());
         }
         sendMessage(ProtocolConstants.RESP_OK + " Fim do histórico");
@@ -433,11 +436,11 @@ public class ClientHandler implements Runnable {
                     "Você não é membro do grupo: " + groupName);
         }
 
-        List<br.ufmt.chat.model.Message> history = messageService.getGroupHistory(groupName);
+        List<br.ufmt.chatcorporativo.model.Message> history = messageService.getGroupHistory(groupName);
         auditService.logAction(username, "GHISTORY", "grupo=" + groupName);
 
         sendMessage(ProtocolConstants.RESP_OK + " Histórico do grupo " + groupName + " (" + history.size() + "):");
-        for (br.ufmt.chat.model.Message msg : history) {
+        for (br.ufmt.chatcorporativo.model.Message msg : history) {
             sendMessage(msg.toString());
         }
         sendMessage(ProtocolConstants.RESP_OK + " Fim do histórico");
@@ -556,6 +559,9 @@ public class ClientHandler implements Runnable {
         String sender = args[0];
         String receiver = args[1];
         String text = args[2];
+
+        // Registra mensagem no histórico local
+        messageService.createDirectMessage(sender, receiver, text);
 
         // Entrega ao destinatário local
         ClientHandler receiverHandler = server.getClient(receiver);

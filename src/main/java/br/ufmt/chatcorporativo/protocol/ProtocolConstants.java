@@ -1,4 +1,4 @@
-package br.ufmt.chat.protocol;
+package br.ufmt.chatcorporativo.protocol;
 
 /**
  * Constantes do protocolo de aplicação do chat corporativo.

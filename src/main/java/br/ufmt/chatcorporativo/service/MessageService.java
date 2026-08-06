@@ -1,14 +1,14 @@
-package br.ufmt.chat.service;
+package br.ufmt.chatcorporativo.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import br.ufmt.chat.exception.ChatException;
-import br.ufmt.chat.model.Message;
-import br.ufmt.chat.protocol.ProtocolConstants;
-import br.ufmt.chat.util.Logger;
+import br.ufmt.chatcorporativo.exception.ChatException;
+import br.ufmt.chatcorporativo.model.Message;
+import br.ufmt.chatcorporativo.protocol.ProtocolConstants;
+import br.ufmt.chatcorporativo.util.Logger;
 
 /**
  * Serviço responsável pelo envio de mensagens ponto-a-ponto (R10)
@@ -21,7 +21,10 @@ public class MessageService {
 
     private static final Logger log = new Logger("MessageService");
 
-    /** Histórico de mensagens diretas (chave = username, valor = lista de mensagens). */
+    /**
+     * Histórico de mensagens diretas (chave = username, valor = lista de
+     * mensagens).
+     */
     private final ConcurrentHashMap<String, List<Message>> directHistory = new ConcurrentHashMap<>();
 
     /** Histórico de mensagens de grupo (chave = groupName). */
@@ -30,9 +33,9 @@ public class MessageService {
     /**
      * Cria e registra uma mensagem direta no histórico.
      *
-     * @param sender      username do remetente
-     * @param receiver    username do destinatário
-     * @param content     texto da mensagem
+     * @param sender   username do remetente
+     * @param receiver username do destinatário
+     * @param content  texto da mensagem
      * @return a Message criada
      * @throws ChatException se argumentos inválidos
      */
@@ -91,8 +94,8 @@ public class MessageService {
     }
 
     private void storeInHistory(ConcurrentHashMap<String, List<Message>> store,
-                                String key, Message msg) {
+            String key, Message msg) {
         store.computeIfAbsent(key, k -> Collections.synchronizedList(new ArrayList<>()))
-             .add(msg);
+                .add(msg);
     }
 }
