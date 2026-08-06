@@ -34,7 +34,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
                 <configuration>
-                    <mainClass>br.ufmt.charcorporativo.ServerMain</mainClass>
+                    <mainClass>br.ufmt.chatcorporativo.ServerMain</mainClass>
                 </configuration>
             </plugin>
 
